@@ -15,7 +15,7 @@ def verify(request: Request):
 
 @router.post("")
 async def receive(request: Request):
-    payload = await request.jsoon()
+    payload = await request.json()
     try: 
         entry = payload["entry"][0]["changes"][0]["value"]
         message = entry["messages"][0]
