@@ -11,3 +11,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         
 settings = Settings()
+
+#This reads everything from your .env file and makes it available anywhere in 
+#your project as settings.openai_api_key, settings.whatsapp_token, etc. 
+#Clean and centralised — you never hardcode a key into actual code.
