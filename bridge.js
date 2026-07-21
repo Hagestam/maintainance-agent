@@ -13,7 +13,7 @@ client.on('qr', (qr) => {
 });
 
 client.on('ready', () => {
-    console.log('\n✅ WhatsApp Web Agent is Connected and Ready!');
+    console.log('\nWhatsApp Web Agent is Connected and Ready!');
 });
 
 // Use 'message_create' instead of 'message' so it captures self-testing
