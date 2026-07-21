@@ -24,7 +24,10 @@ client.on('message_create', async (msg) => {
     // Ignore outgoing messages sent to OTHER people (prevents replying to yourself in other chats)
     if (msg.fromMe && msg.from !== msg.to) return;
 
-    console.log(`\n📩 Received message: "${msg.body}" from ${msg.from}`);
+    // Guard: Ignore empty messages, media without text, voice notes, stickers
+    if (!msg.body || msg.body.trim() === '') return;
+
+    console.log(`\nReceived message: "${msg.body}" from ${msg.from}`);
 
     try {
         // Post message to your Python FastAPI server
@@ -36,10 +39,10 @@ client.on('message_create', async (msg) => {
         const replyText = response.data.reply;
         if (replyText) {
             await msg.reply(replyText);
-            console.log(`📤 Sent reply to ${msg.from}`);
+            console.log(`Sent reply to ${msg.from}`);
         }
     } catch (error) {
-        console.error('❌ Error communicating with FastAPI server:', error.message);
+        console.error('Error communicating with FastAPI server:', error.message);
     }
 });
 
