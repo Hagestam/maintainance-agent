@@ -38,3 +38,4 @@ htmlcov/
 
 # SQLite
 *.db
+node_modules

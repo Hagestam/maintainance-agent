@@ -62,7 +62,7 @@ class ClientInfo extends Base {
      */
     async getBatteryStatus() {
         return await this.client.pupPage.evaluate(() => {
-            const { battery, plugged } = window.require('WAWebConnModel').Conn;
+            const { battery, plugged } = window.Store.Conn;
             return { battery, plugged };
         });
     }

@@ -79,80 +79,44 @@ TOOLS = [
     }
 ]
 
-
-def handle_message(from_number: str, text: str) -> str:
+def handle_message(from_number: str, text: str, image_base64: str = None, image_mime_type: str = None) -> str:
     print("\n========== AGENT START ==========")
-    print(f"From: {from_number}")
-    print(f"Message: {text}")
+    print(f"From: {from_number} | Message: {text}")
 
-    # Get or create conversation history for this user
     if from_number not in conversation_history:
         conversation_history[from_number] = []
 
-    # Add incoming message to history
+    # Build message content — text only, or text + image
+    if image_base64 and image_mime_type:
+        user_content = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image_mime_type,
+                    "data": image_base64
+                }
+            },
+            {
+                "type": "text",
+                "text": text if text.strip() else "I sent a photo of the issue. What do you see?"
+            }
+        ]
+    else:
+        user_content = text
+
     conversation_history[from_number].append({
         "role": "user",
-        "content": text
+        "content": user_content
     })
 
     try:
-        print("[1] Loading system prompt...")
         with open("prompts/intake_prompt.txt", "r", encoding="utf-8") as file:
             system_prompt = file.read()
 
-        print("[2] Calling Claude...")
-        response = client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=1024,
-            system=system_prompt,
-            tools=TOOLS,
-            messages=conversation_history[from_number]
-        )
-
-        print(f"[3] Claude responded | stop_reason: {response.stop_reason}")
-
-        # Scan all blocks first — don't return on text if a tool call also exists
-        tool_block = None
-        text_block = None
-
-        for block in response.content:
-            print(f"Block type: {block.type}")
-            if block.type == "tool_use":
-                tool_block = block
-            elif block.type == "text" and block.text:
-                text_block = block
-
-        # Tool calls take priority over text
-        if tool_block:
-            print(f"Tool: {tool_block.name} | Input: {tool_block.input}")
-
-            if tool_block.name == "create_work_order":
-                tool_result = create_work_order(**tool_block.input)
-            elif tool_block.name == "search_assets":
-                tool_result = search_assets(**tool_block.input)
-            elif tool_block.name == "find_available_technician":
-                tool_result = find_available_technician(**tool_block.input)
-            elif tool_block.name == "get_asset_history":
-                tool_result = get_asset_history(**tool_block.input)
-            else:
-                tool_result = {"error": "Unknown tool"}
-
-            print(f"Tool result: {tool_result}")
-
-            conversation_history[from_number].append({
-                "role": "assistant",
-                "content": response.content
-            })
-            conversation_history[from_number].append({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": tool_block.id,
-                    "content": str(tool_result)
-                }]
-            })
-
-            follow_up = client.messages.create(
+        # Allow up to 5 rounds of tool calling
+        for _ in range(5):
+            response = client.messages.create(
                 model="claude-haiku-4-5",
                 max_tokens=1024,
                 system=system_prompt,
@@ -160,44 +124,58 @@ def handle_message(from_number: str, text: str) -> str:
                 messages=conversation_history[from_number]
             )
 
-            # follow-up might also be a tool call (e.g. create_work_order after search)
-            reply = None
-            for b in follow_up.content:
-                if b.type == "text" and b.text:
-                    reply = b.text
-                elif b.type == "tool_use" and b.name == "create_work_order":
-                    wo_result = create_work_order(**b.input)
-                    reply = (
-                        f"Work order #{wo_result['wo_id']} created.\n"
-                        f"Priority: {wo_result['priority']}\n"
-                        f"A technician will be assigned shortly."
-                    )
+            print(f"Stop reason: {response.stop_reason}")
 
-            if not reply:
-                reply = "Work order processed."
-                
-            conversation_history[from_number].append({
-                "role": "assistant",
-                "content": reply
-            })
-            print(f"[4] Returning reply: {reply}")
-            print("========== AGENT END ==========\n")
-            return reply
+            # If Claude is done — just return the text
+            if response.stop_reason == "end_turn":
+                for block in response.content:
+                    if block.type == "text" and block.text:
+                        conversation_history[from_number].append({
+                            "role": "assistant",
+                            "content": block.text
+                        })
+                        print(f"Reply: {block.text}")
+                        return block.text
+                return "Done."
 
-        elif text_block:
-            conversation_history[from_number].append({
-                "role": "assistant",
-                "content": text_block.text
-            })
-            print(f"[4] Text reply: {text_block.text}")
-            print("========== AGENT END ==========\n")
-            return text_block.text
+            # Claude wants to call tools — run ALL of them
+            if response.stop_reason == "tool_use":
+                tool_results = []
 
-        return "I processed your request but had no output to return."
+                for block in response.content:
+                    if block.type == "tool_use":
+                        print(f"Tool: {block.name} | Input: {block.input}")
+
+                        if block.name == "create_work_order":
+                            result = create_work_order(**block.input)
+                        elif block.name == "search_assets":
+                            result = search_assets(**block.input)
+                        elif block.name == "find_available_technician":
+                            result = find_available_technician(**block.input)
+                        elif block.name == "get_asset_history":
+                            result = get_asset_history(**block.input)
+                        else:
+                            result = {"error": "Unknown tool"}
+
+                        print(f"Result: {result}")
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": str(result)
+                        })
+
+                # Add Claude's response and ALL tool results to history
+                conversation_history[from_number].append({
+                    "role": "assistant",
+                    "content": response.content
+                })
+                conversation_history[from_number].append({
+                    "role": "user",
+                    "content": tool_results
+                })
+
+        return "I was unable to complete the request."
 
     except Exception as error:
-        print("\n========== AGENT ERROR ==========")
-        print(type(error).__name__)
-        print(str(error))
-        print("=================================\n")
+        print(f"ERROR: {type(error).__name__}: {error}")
         return "I received your message but encountered an internal error."

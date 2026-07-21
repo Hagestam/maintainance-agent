@@ -1,3 +1,2 @@
-2026/07/21-22:47:03.552 5 Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Session Storage/MANIFEST-000001
-2026/07/21-22:47:03.553 5 Recovering log #3
-2026/07/21-22:47:03.553 5 Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Session Storage/000003.log 
+2026/07/22-01:47:07.394 2b4db Creating DB /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Session Storage since it was missing.
+2026/07/22-01:47:07.398 2b4db Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Session Storage/MANIFEST-000001

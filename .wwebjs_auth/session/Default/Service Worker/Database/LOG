@@ -1,3 +1,2 @@
-2026/07/21-22:47:02.328 271fe Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Service Worker/Database/MANIFEST-000001
-2026/07/21-22:47:02.328 271fe Recovering log #3
-2026/07/21-22:47:02.328 271fe Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Service Worker/Database/000003.log 
+2026/07/22-01:47:09.506 2b4eb Creating DB /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Service Worker/Database since it was missing.
+2026/07/22-01:47:09.508 2b4eb Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Service Worker/Database/MANIFEST-000001

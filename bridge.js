@@ -4,7 +4,12 @@ const axios = require('axios');
 
 // LocalAuth saves your session locally so you only scan the QR code once
 const client = new Client({
-    authStrategy: new LocalAuth()
+    authStrategy: new LocalAuth(),
+    webVersion: '2.2412.54',
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
+    }
 });
 
 client.on('qr', (qr) => {
@@ -18,22 +23,38 @@ client.on('ready', () => {
 
 // Use 'message_create' instead of 'message' so it captures self-testing
 client.on('message_create', async (msg) => {
-    // Ignore status updates
     if (msg.from === 'status@broadcast') return;
-
-    // Ignore outgoing messages sent to OTHER people (prevents replying to yourself in other chats)
     if (msg.fromMe && msg.from !== msg.to) return;
 
-    // Guard: Ignore empty messages, media without text, voice notes, stickers
-    if (!msg.body || msg.body.trim() === '') return;
+    let messageText = msg.body || '';
+    let imageBase64 = null;
+    let imageMimeType = null;
 
-    console.log(`\nReceived message: "${msg.body}" from ${msg.from}`);
+    // Handle media messages (photos)
+    if (msg.hasMedia) {
+        try {
+            const media = await msg.downloadMedia();
+            if (media && media.mimetype.startsWith('image/')) {
+                imageBase64 = media.data;
+                imageMimeType = media.mimetype;
+                console.log(`Image received from ${msg.from}, type: ${media.mimetype}`);
+            }
+        } catch (err) {
+            console.error('Failed to download media:', err);
+        }
+    }
+
+    // Skip if no text and no image
+    if (!messageText.trim() && !imageBase64) return;
+
+    console.log(`\nMessage from ${msg.from}: "${messageText}"`);
 
     try {
-        // Post message to your Python FastAPI server
         const response = await axios.post('http://localhost:8000/api/chat', {
             user: msg.from,
-            message: msg.body
+            message: messageText || 'I sent a photo of the issue.',
+            image_base64: imageBase64,
+            image_mime_type: imageMimeType
         });
 
         const replyText = response.data.reply;

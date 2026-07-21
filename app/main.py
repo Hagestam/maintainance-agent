@@ -1,23 +1,28 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from typing import Optional
 from api.routes import whatsapp_webhook, dashboard
 from agents.orchestrator import handle_message
 
-app = FastAPI(title = "RT Knits Maintainance Agent")
+app = FastAPI(title="RT Knits Maintenance Agent")
 
-app.include_router(whatsapp_webhook.router, prefix = "/webhook")
-app.include_router(dashboard.router, prefix = "/api")
+app.include_router(whatsapp_webhook.router, prefix="/webhook")
+app.include_router(dashboard.router, prefix="/api")
 
-# --- Schema for WhatsApp Web Bridge ---
 class ChatRequest(BaseModel):
     user: str
     message: str
+    image_base64: Optional[str] = None
+    image_mime_type: Optional[str] = None
 
-# --- Endpoint called by bridge.js ---
 @app.post("/api/chat")
 async def chat_bridge(req: ChatRequest):
-    # Pass user & text to your agent and return Claude's response
-    reply = handle_message(req.user, req.message)
+    reply = handle_message(
+        req.user,
+        req.message,
+        image_base64=req.image_base64,
+        image_mime_type=req.image_mime_type
+    )
     return {"reply": reply}
 
 @app.get("/health")
