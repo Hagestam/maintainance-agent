@@ -6,6 +6,7 @@
  * @property {string} [name] Location name
  * @property {string} [address] Location address
  * @property {string} [url] URL address to be shown within a location message
+ * @property {string} [description] Location full description
  */
 
 /**
@@ -52,9 +53,10 @@ class Location {
          * Location full description
          * @type {string|undefined}
          */
-        this.description = this.name && this.address
-            ? `${this.name}\n${this.address}`
-            : this.name || this.address || '';
+        this.description =
+            this.name && this.address
+                ? `${this.name}\n${this.address}`
+                : this.name || this.address || '';
     }
 }
 

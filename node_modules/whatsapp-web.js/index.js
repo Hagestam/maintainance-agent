@@ -4,13 +4,14 @@ const Constants = require('./src/util/Constants');
 
 module.exports = {
     Client: require('./src/Client'),
-    
+
     version: require('./package.json').version,
 
     // Structures
     Chat: require('./src/structures/Chat'),
     PrivateChat: require('./src/structures/PrivateChat'),
     GroupChat: require('./src/structures/GroupChat'),
+    Channel: require('./src/structures/Channel'),
     Message: require('./src/structures/Message'),
     MessageMedia: require('./src/structures/MessageMedia'),
     Contact: require('./src/structures/Contact'),
@@ -19,15 +20,16 @@ module.exports = {
     ClientInfo: require('./src/structures/ClientInfo'),
     Location: require('./src/structures/Location'),
     Poll: require('./src/structures/Poll'),
+    ScheduledEvent: require('./src/structures/ScheduledEvent'),
     ProductMetadata: require('./src/structures/ProductMetadata'),
     List: require('./src/structures/List'),
     Buttons: require('./src/structures/Buttons'),
-    
+    Broadcast: require('./src/structures/Broadcast'),
+
     // Auth Strategies
     NoAuth: require('./src/authStrategies/NoAuth'),
     LocalAuth: require('./src/authStrategies/LocalAuth'),
     RemoteAuth: require('./src/authStrategies/RemoteAuth'),
-    LegacySessionAuth: require('./src/authStrategies/LegacySessionAuth'),
-    
-    ...Constants
+
+    ...Constants,
 };

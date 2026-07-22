@@ -2,13 +2,19 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 
-// LocalAuth saves your session locally so you only scan the QR code once
 const client = new Client({
     authStrategy: new LocalAuth(),
-    webVersion: '2.2412.54',
-    webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
+    puppeteer: {
+        headless: false, // Set to false so you can see the browser window
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
     }
 });
 
@@ -17,11 +23,18 @@ client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
 });
 
+client.on('authenticated', () => {
+    console.log('Authentication successful! Loading WhatsApp Web...');
+});
+
+client.on('auth_failure', (msg) => {
+    console.error('Authentication failure:', msg);
+});
+
 client.on('ready', () => {
     console.log('\nWhatsApp Web Agent is Connected and Ready!');
 });
 
-// Use 'message_create' instead of 'message' so it captures self-testing
 client.on('message_create', async (msg) => {
     if (msg.from === 'status@broadcast') return;
     if (msg.fromMe && msg.from !== msg.to) return;
@@ -30,7 +43,6 @@ client.on('message_create', async (msg) => {
     let imageBase64 = null;
     let imageMimeType = null;
 
-    // Handle media messages (photos)
     if (msg.hasMedia) {
         try {
             const media = await msg.downloadMedia();
@@ -44,7 +56,6 @@ client.on('message_create', async (msg) => {
         }
     }
 
-    // Skip if no text and no image
     if (!messageText.trim() && !imageBase64) return;
 
     console.log(`\nMessage from ${msg.from}: "${messageText}"`);

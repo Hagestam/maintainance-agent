@@ -1,5 +1,6 @@
 import anthropic
 from app.config import settings
+from tools.admin_tools import delete_work_order, view_all_work_orders
 from tools.cmms_tools import create_work_order, search_assets, find_available_technician, get_asset_history
 
 client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
@@ -35,6 +36,36 @@ TOOLS = [
             "required": ["priority", "description"]
         }
     },
+    
+    {
+        "name": "delete_work_order",
+        "description": "ADMIN ONLY. Delete a work order permanently from the database.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "wo_id": {
+                    "type": "integer",
+                    "description": "The ID of the work order to delete"
+                }
+            },
+            "required": ["wo_id"]
+        }
+    },
+    {
+        "name": "view_all_work_orders",
+        "description": "ADMIN ONLY. View all reported tasks/work orders. Can be filtered by status (e.g., 'open', 'completed', 'pending').",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "status_filter": {
+                    "type": "string",
+                    "description": "Optional status to filter by (e.g. 'open', 'closed'). Omit to see all."
+                }
+            },
+            "required": []
+        }
+    },
+    
     {
         "name": "search_assets",
         "description": "Search the asset database by name or keyword to find the asset ID. Use this when the user mentions a machine or equipment name.",
@@ -80,6 +111,58 @@ TOOLS = [
 ]
 
 def handle_message(from_number: str, text: str, image_base64: str = None, image_mime_type: str = None) -> str:
+    # In orchestrator.py inside handle_message()
+    IS_ADMIN = from_number in ADMIN_NUMBERS
+
+    # Dynamically filter tools based on role
+    active_tools = [
+        t for t in TOOLS 
+        if IS_ADMIN or not t["name"].startswith(("delete_", "view_all_"))
+    ]
+    def get_trimmed_history(history: list, max_messages: int = 6) -> list:
+        """
+        Trims history to the last N messages while ensuring:
+        1. The sequence starts with a 'user' message.
+        2. No dangling 'tool_result' blocks are left at the beginning.
+        """
+        if len(history) <= max_messages:
+            return history
+
+        # Take the tail end of the conversation
+        trimmed = history[-max_messages:]
+
+        # Remove invalid leading messages until we find a valid starting 'user' message
+        while trimmed:
+            first_msg = trimmed[0]
+            
+            # Check if it's a user message
+            if first_msg.get("role") == "user":
+                content = first_msg.get("content")
+                
+                # Ensure it's not a leading tool_result list
+                is_tool_result = (
+                    isinstance(content, list) 
+                    and len(content) > 0 
+                    and content[0].get("type") == "tool_result"
+                )
+                
+                if not is_tool_result:
+                    # Valid starting user message found!
+                    break
+                    
+            # Remove invalid starting message and try again
+            trimmed.pop(0)
+
+        # Fallback to full history if trimming stripped everything
+        return trimmed if trimmed else history
+
+    response = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=1024,
+        system=system_prompt,
+        tools=active_tools, # <-- Only send relevant tools
+        messages=conversation_history[from_number][-6:] # <-- Sliding window memory
+    )
     print("\n========== AGENT START ==========")
     print(f"From: {from_number} | Message: {text}")
 
@@ -148,6 +231,13 @@ def handle_message(from_number: str, text: str, image_base64: str = None, image_
 
                         if block.name == "create_work_order":
                             result = create_work_order(**block.input)
+                        elif block.name == "delete_work_order":
+                            block.input["requesting_user"] = from_number 
+                            result = delete_work_order(**block.input)
+                        elif block.name == "view_all_work_orders":
+                            # Pass the admin number to the new tool
+                            block.input["requesting_user"] = from_number
+                            result = view_all_work_orders(**block.input)
                         elif block.name == "search_assets":
                             result = search_assets(**block.input)
                         elif block.name == "find_available_technician":

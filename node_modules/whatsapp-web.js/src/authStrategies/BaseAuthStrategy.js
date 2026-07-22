@@ -8,15 +8,17 @@ class BaseAuthStrategy {
     setup(client) {
         this.client = client;
     }
+
     async beforeBrowserInitialized() {}
     async afterBrowserInitialized() {}
     async onAuthenticationNeeded() {
         return {
             failed: false,
             restart: false,
-            failureEventPayload: undefined
+            failureEventPayload: undefined,
         };
     }
+
     async getAuthEventPayload() {}
     async afterAuthReady() {}
     async disconnect() {}

@@ -1,2 +1,3 @@
-2026/07/22-01:47:06.135 2b4db Creating DB /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Local Storage/leveldb since it was missing.
-2026/07/22-01:47:06.137 2b4db Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2026/07/22-18:52:30.023 32a94 Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2026/07/22-18:52:30.025 32a94 Recovering log #3
+2026/07/22-18:52:30.026 32a94 Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Local Storage/leveldb/000003.log 
