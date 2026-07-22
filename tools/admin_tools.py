@@ -49,16 +49,17 @@ def view_all_work_orders(status_filter: str = None, requesting_user: str = None)
     db.close()
     
     if not wos:
-        return {"status": "success", "message": "No work orders found.", "tasks": []}
-        
-    # Format the data so Claude can read it easily
-    task_list = []
-    for wo in wos:
-        task_list.append({
-            "wo_id": wo.wo_id,
-            "priority": wo.priority,
-            "status": wo.status,
-            "description": wo.description
-        })
-        
-    return {"status": "success", "tasks": task_list}
+        return {"status": "success", "count": 0, "tasks": []}
+
+    # Concise array format with truncated descriptions
+    task_list = [
+        {
+            "id": wo.wo_id,
+            "prio": wo.priority,
+            "stat": wo.status,
+            "desc": wo.description[:50] + "..." if len(wo.description) > 50 else wo.description
+        }
+        for wo in wos
+    ]
+
+    return {"status": "success", "count": len(task_list), "tasks": task_list}

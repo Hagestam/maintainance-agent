@@ -3,19 +3,25 @@ from models.work_order import WorkOrder
 from models.asset import Asset
 from models.technician import Technician
 
+# Costs ~15 tokens per execution
 def create_work_order(priority: str, description: str, asset_id: int = None) -> dict:
     db = SessionLocal()
-    wo = WorkOrder(
-        asset_id=asset_id,
+    new_wo = WorkOrder(
         priority=priority,
         description=description,
+        asset_id=asset_id,
         status="open"
     )
-    db.add(wo)
+    db.add(new_wo)
     db.commit()
-    db.refresh(wo)
+    db.refresh(new_wo)
     db.close()
-    return {"wo_id": wo.wo_id, "priority": priority, "status": "created"}
+
+    return {
+        "status": "success",
+        "wo_id": new_wo.wo_id,
+        "priority": new_wo.priority
+    }
 
 def search_assets(query: str) -> list:
     db = SessionLocal()

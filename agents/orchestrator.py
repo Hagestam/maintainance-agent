@@ -1,7 +1,17 @@
 import anthropic
 from app.config import settings
-from tools.admin_tools import delete_work_order, view_all_work_orders
-from tools.cmms_tools import create_work_order, search_assets, find_available_technician, get_asset_history
+# 1. Import ADMIN_NUMBERS from admin_tools
+from tools.admin_tools import (
+    ADMIN_NUMBERS,
+    delete_work_order,
+    view_all_work_orders,
+)
+from tools.cmms_tools import (
+    create_work_order,
+    search_assets,
+    find_available_technician,
+    get_asset_history,
+)
 
 client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
@@ -22,21 +32,20 @@ TOOLS = [
                 "priority": {
                     "type": "string",
                     "enum": ["P0", "P1", "P2"],
-                    "description": "P0 = production stopped or safety hazard, P1 = serious operational issue, P2 = non-urgent issue"
+                    "description": "P0 = production stopped or safety hazard, P1 = serious operational issue, P2 = non-urgent issue",
                 },
                 "description": {
                     "type": "string",
-                    "description": "Clear description of the problem, location, and symptoms"
+                    "description": "Clear description of the problem, location, and symptoms",
                 },
                 "asset_id": {
                     "type": "integer",
-                    "description": "The asset ID if known, otherwise omit"
-                }
+                    "description": "The asset ID if known, otherwise omit",
+                },
             },
-            "required": ["priority", "description"]
-        }
+            "required": ["priority", "description"],
+        },
     },
-    
     {
         "name": "delete_work_order",
         "description": "ADMIN ONLY. Delete a work order permanently from the database.",
@@ -45,11 +54,11 @@ TOOLS = [
             "properties": {
                 "wo_id": {
                     "type": "integer",
-                    "description": "The ID of the work order to delete"
+                    "description": "The ID of the work order to delete",
                 }
             },
-            "required": ["wo_id"]
-        }
+            "required": ["wo_id"],
+        },
     },
     {
         "name": "view_all_work_orders",
@@ -59,13 +68,12 @@ TOOLS = [
             "properties": {
                 "status_filter": {
                     "type": "string",
-                    "description": "Optional status to filter by (e.g. 'open', 'closed'). Omit to see all."
+                    "description": "Optional status to filter by (e.g. 'open', 'closed'). Omit to see all.",
                 }
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
-    
     {
         "name": "search_assets",
         "description": "Search the asset database by name or keyword to find the asset ID. Use this when the user mentions a machine or equipment name.",
@@ -74,11 +82,11 @@ TOOLS = [
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "The asset name or keyword to search for, e.g. 'dye machine', 'boiler', 'cutter'"
+                    "description": "The asset name or keyword to search for, e.g. 'dye machine', 'boiler', 'cutter'",
                 }
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     },
     {
         "name": "find_available_technician",
@@ -88,11 +96,11 @@ TOOLS = [
             "properties": {
                 "trade": {
                     "type": "string",
-                    "description": "The trade needed, e.g. 'Electrician', 'Mechanic', 'Plumber'"
+                    "description": "The trade needed, e.g. 'Electrician', 'Mechanic', 'Plumber'",
                 }
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "get_asset_history",
@@ -102,67 +110,48 @@ TOOLS = [
             "properties": {
                 "asset_id": {
                     "type": "integer",
-                    "description": "The asset ID to look up history for"
+                    "description": "The asset ID to look up history for",
                 }
             },
-            "required": ["asset_id"]
-        }
-    }
+            "required": ["asset_id"],
+        },
+    },
 ]
 
-def handle_message(from_number: str, text: str, image_base64: str = None, image_mime_type: str = None) -> str:
-    # In orchestrator.py inside handle_message()
-    IS_ADMIN = from_number in ADMIN_NUMBERS
 
-    # Dynamically filter tools based on role
-    active_tools = [
-        t for t in TOOLS 
-        if IS_ADMIN or not t["name"].startswith(("delete_", "view_all_"))
-    ]
-    def get_trimmed_history(history: list, max_messages: int = 6) -> list:
-        """
-        Trims history to the last N messages while ensuring:
-        1. The sequence starts with a 'user' message.
-        2. No dangling 'tool_result' blocks are left at the beginning.
-        """
-        if len(history) <= max_messages:
-            return history
+def get_trimmed_history(history: list, max_messages: int = 6) -> list:
+    """
+    Trims history to the last N messages while ensuring:
+    1. The sequence starts with a 'user' message.
+    2. No dangling 'tool_result' blocks are left at the beginning.
+    """
+    if len(history) <= max_messages:
+        return history
 
-        # Take the tail end of the conversation
-        trimmed = history[-max_messages:]
+    trimmed = history[-max_messages:]
 
-        # Remove invalid leading messages until we find a valid starting 'user' message
-        while trimmed:
-            first_msg = trimmed[0]
-            
-            # Check if it's a user message
-            if first_msg.get("role") == "user":
-                content = first_msg.get("content")
-                
-                # Ensure it's not a leading tool_result list
-                is_tool_result = (
-                    isinstance(content, list) 
-                    and len(content) > 0 
-                    and content[0].get("type") == "tool_result"
-                )
-                
-                if not is_tool_result:
-                    # Valid starting user message found!
-                    break
-                    
-            # Remove invalid starting message and try again
-            trimmed.pop(0)
+    while trimmed:
+        first_msg = trimmed[0]
+        if first_msg.get("role") == "user":
+            content = first_msg.get("content")
+            is_tool_result = (
+                isinstance(content, list)
+                and len(content) > 0
+                and content[0].get("type") == "tool_result"
+            )
+            if not is_tool_result:
+                break
+        trimmed.pop(0)
 
-        # Fallback to full history if trimming stripped everything
-        return trimmed if trimmed else history
+    return trimmed if trimmed else history
 
-    response = client.messages.create(
-        model="claude-haiku-4-5",
-        max_tokens=1024,
-        system=system_prompt,
-        tools=active_tools, # <-- Only send relevant tools
-        messages=conversation_history[from_number][-6:] # <-- Sliding window memory
-    )
+
+def handle_message(
+    from_number: str,
+    text: str,
+    image_base64: str = None,
+    image_mime_type: str = None,
+) -> str:
     print("\n========== AGENT START ==========")
     print(f"From: {from_number} | Message: {text}")
 
@@ -177,34 +166,48 @@ def handle_message(from_number: str, text: str, image_base64: str = None, image_
                 "source": {
                     "type": "base64",
                     "media_type": image_mime_type,
-                    "data": image_base64
-                }
+                    "data": image_base64,
+                },
             },
             {
                 "type": "text",
-                "text": text if text.strip() else "I sent a photo of the issue. What do you see?"
-            }
+                "text": text.strip()
+                if text.strip()
+                else "I sent a photo of the issue. What do you see?",
+            },
         ]
     else:
         user_content = text
 
-    conversation_history[from_number].append({
-        "role": "user",
-        "content": user_content
-    })
+    conversation_history[from_number].append(
+        {"role": "user", "content": user_content}
+    )
+
+    # 2. Dynamically filter tools based on user permissions (Strategy A)
+    is_admin = from_number in ADMIN_NUMBERS
+    active_tools = [
+        t
+        for t in TOOLS
+        if is_admin or not t["name"].startswith(("delete_", "view_all_"))
+    ]
 
     try:
         with open("prompts/intake_prompt.txt", "r", encoding="utf-8") as file:
             system_prompt = file.read()
 
         # Allow up to 5 rounds of tool calling
-        for _ in range(5):
+        for _ in range(7):
+            # 3. Trim message history safely before calling API (Strategy B)
+            trimmed_history = get_trimmed_history(
+                conversation_history[from_number], max_messages=10
+            )
+
             response = client.messages.create(
                 model="claude-haiku-4-5",
                 max_tokens=1024,
                 system=system_prompt,
-                tools=TOOLS,
-                messages=conversation_history[from_number]
+                tools=active_tools,
+                messages=trimmed_history,
             )
 
             print(f"Stop reason: {response.stop_reason}")
@@ -213,10 +216,9 @@ def handle_message(from_number: str, text: str, image_base64: str = None, image_
             if response.stop_reason == "end_turn":
                 for block in response.content:
                     if block.type == "text" and block.text:
-                        conversation_history[from_number].append({
-                            "role": "assistant",
-                            "content": block.text
-                        })
+                        conversation_history[from_number].append(
+                            {"role": "assistant", "content": block.text}
+                        )
                         print(f"Reply: {block.text}")
                         return block.text
                 return "Done."
@@ -232,10 +234,9 @@ def handle_message(from_number: str, text: str, image_base64: str = None, image_
                         if block.name == "create_work_order":
                             result = create_work_order(**block.input)
                         elif block.name == "delete_work_order":
-                            block.input["requesting_user"] = from_number 
+                            block.input["requesting_user"] = from_number
                             result = delete_work_order(**block.input)
                         elif block.name == "view_all_work_orders":
-                            # Pass the admin number to the new tool
                             block.input["requesting_user"] = from_number
                             result = view_all_work_orders(**block.input)
                         elif block.name == "search_assets":
@@ -248,21 +249,21 @@ def handle_message(from_number: str, text: str, image_base64: str = None, image_
                             result = {"error": "Unknown tool"}
 
                         print(f"Result: {result}")
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": str(result)
-                        })
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": block.id,
+                                "content": str(result),
+                            }
+                        )
 
                 # Add Claude's response and ALL tool results to history
-                conversation_history[from_number].append({
-                    "role": "assistant",
-                    "content": response.content
-                })
-                conversation_history[from_number].append({
-                    "role": "user",
-                    "content": tool_results
-                })
+                conversation_history[from_number].append(
+                    {"role": "assistant", "content": response.content}
+                )
+                conversation_history[from_number].append(
+                    {"role": "user", "content": tool_results}
+                )
 
         return "I was unable to complete the request."
 

@@ -1,6 +1,10 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
+const express = require('express');
+
+const app = express();
+app.use(express.json());
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -35,6 +39,21 @@ client.on('ready', () => {
     console.log('\nWhatsApp Web Agent is Connected and Ready!');
 });
 
+// 1. ENDPOINT FOR PYTHON: Listens for backend dispatches on port 3000
+app.post('/send-message', async (req, res) => {
+    const { phone, message } = req.body;
+    try {
+        let chatId = phone.includes('@c.us') ? phone : `${phone}@c.us`;
+        await client.sendMessage(chatId, message);
+        console.log(`[SENT VIA BRIDGE] Emergency alert sent to ${chatId}`);
+        res.status(200).json({ status: 'success' });
+    } catch (error) {
+        console.error('Failed to send message via bridge:', error);
+        res.status(500).json({ status: 'error', error: error.message });
+    }
+});
+
+// 2. LISTENER FOR WHATSAPP INCOMING MESSAGES
 client.on('message_create', async (msg) => {
     if (msg.from === 'status@broadcast') return;
     if (msg.fromMe && msg.from !== msg.to) return;
@@ -79,3 +98,8 @@ client.on('message_create', async (msg) => {
 });
 
 client.initialize();
+
+// Start Express HTTP Server on Port 3000
+app.listen(3000, () => {
+    console.log('Bridge HTTP server listening on port 3000');
+});
