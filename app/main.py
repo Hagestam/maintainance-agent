@@ -9,6 +9,8 @@ from api.routes import whatsapp_webhook, dashboard
 from agents.orchestrator import handle_message
 from tools.scheduler import start_scheduler, stop_scheduler
 from tools.planning_tools import build_nightly_plan
+from api.routes.whatsapp_webhook import router as whatsapp_router
+
 
 # --- Imported Tools for Testing ---
 from tools.pm_planner import generate_pm_work_orders
@@ -25,6 +27,7 @@ app = FastAPI(title="RT Knits Maintenance Agent", lifespan=lifespan)
 
 app.include_router(whatsapp_webhook.router, prefix="/webhook")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(whatsapp_router)
 
 class ChatRequest(BaseModel):
     user: str

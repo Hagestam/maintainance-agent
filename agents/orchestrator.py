@@ -1,17 +1,14 @@
+# agents/orchestrator.py
 import anthropic
 from app.config import settings
-# 1. Import ADMIN_NUMBERS from admin_tools
-from tools.admin_tools import (
-    ADMIN_NUMBERS,
-    delete_work_order,
-    view_all_work_orders,
-)
+from tools.admin_tools import ADMIN_NUMBERS, delete_work_order, view_all_work_orders
 from tools.cmms_tools import (
     create_work_order,
     search_assets,
     find_available_technician,
     get_asset_history,
 )
+from tools.image_store import save_image          # ← NEW
 
 client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
@@ -24,7 +21,8 @@ TOOLS = [
         "description": (
             "Create a maintenance work order in the CMMS database. "
             "Only call this once you have enough information: what the "
-            "problem is, where it is, and the priority."
+            "problem is, where it is, and the priority. "
+            "If the user sent a photo, the photo_url will be provided automatically."
         ),
         "input_schema": {
             "type": "object",
@@ -32,15 +30,29 @@ TOOLS = [
                 "priority": {
                     "type": "string",
                     "enum": ["P0", "P1", "P2"],
-                    "description": "P0 = production stopped or safety hazard, P1 = serious operational issue, P2 = non-urgent issue",
+                    "description": (
+                        "P0 = production stopped or safety hazard, "
+                        "P1 = serious operational issue, "
+                        "P2 = non-urgent issue"
+                    ),
                 },
                 "description": {
                     "type": "string",
-                    "description": "Clear description of the problem, location, and symptoms",
+                    "description": (
+                        "Clear description of the problem, location, and symptoms. "
+                        "If a photo was provided, include your visual observations here."
+                    ),
                 },
                 "asset_id": {
                     "type": "integer",
                     "description": "The asset ID if known, otherwise omit",
+                },
+                "photo_url": {                      # ← NEW
+                    "type": "string",
+                    "description": (
+                        "File path of the saved photo. "
+                        "Pass the value supplied in the system context — do NOT invent this."
+                    ),
                 },
             },
             "required": ["priority", "description"],
@@ -62,7 +74,7 @@ TOOLS = [
     },
     {
         "name": "view_all_work_orders",
-        "description": "ADMIN ONLY. View all reported tasks/work orders. Can be filtered by status (e.g., 'open', 'completed', 'pending').",
+        "description": "ADMIN ONLY. View all reported tasks/work orders. Can be filtered by status.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -76,13 +88,13 @@ TOOLS = [
     },
     {
         "name": "search_assets",
-        "description": "Search the asset database by name or keyword to find the asset ID. Use this when the user mentions a machine or equipment name.",
+        "description": "Search the asset database by name or keyword to find the asset ID.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "The asset name or keyword to search for, e.g. 'dye machine', 'boiler', 'cutter'",
+                    "description": "The asset name or keyword, e.g. 'dye machine', 'boiler', 'cutter'",
                 }
             },
             "required": ["query"],
@@ -119,7 +131,7 @@ TOOLS = [
 ]
 
 
-def get_trimmed_history(history: list, max_messages: int = 6) -> list:
+def get_trimmed_history(history: list, max_messages: int = 10) -> list:
     """
     Trims history to the last N messages while ensuring:
     1. The sequence starts with a 'user' message.
@@ -158,7 +170,24 @@ def handle_message(
     if from_number not in conversation_history:
         conversation_history[from_number] = []
 
-    # Build message content — text only, or text + image
+    # -------------------------------------------------------------------------
+    # 1. Persist the image to disk BEFORE the agentic loop.
+    #    The saved path is injected into the system context so Claude can pass
+    #    it straight through to create_work_order without hallucinating a path.
+    # -------------------------------------------------------------------------
+    saved_photo_url: str | None = None
+    if image_base64 and image_mime_type:
+        saved_photo_url = save_image(image_base64, image_mime_type, from_number)
+        if saved_photo_url:
+            print(f"[orchestrator] Photo saved → {saved_photo_url}")
+        else:
+            print("[orchestrator] Photo save failed — continuing without photo_url")
+
+    # -------------------------------------------------------------------------
+    # 2. Build the user message content.
+    #    If there is an image, send it as a multimodal block so Claude can
+    #    visually inspect it (identify the asset, gauge damage severity, etc.)
+    # -------------------------------------------------------------------------
     if image_base64 and image_mime_type:
         user_content = [
             {
@@ -171,9 +200,11 @@ def handle_message(
             },
             {
                 "type": "text",
-                "text": text.strip()
-                if text.strip()
-                else "I sent a photo of the issue. What do you see?",
+                "text": (
+                    text.strip()
+                    if text.strip()
+                    else "I sent a photo of the issue. What do you see?"
+                ),
             },
         ]
     else:
@@ -183,7 +214,9 @@ def handle_message(
         {"role": "user", "content": user_content}
     )
 
-    # 2. Dynamically filter tools based on user permissions (Strategy A)
+    # -------------------------------------------------------------------------
+    # 3. Filter tools based on user role.
+    # -------------------------------------------------------------------------
     is_admin = from_number in ADMIN_NUMBERS
     active_tools = [
         t
@@ -193,11 +226,25 @@ def handle_message(
 
     try:
         with open("prompts/intake_prompt.txt", "r", encoding="utf-8") as file:
-            system_prompt = file.read()
+            base_prompt = file.read()
 
-        # Allow up to 5 rounds of tool calling
+        # ------------------------------------------------------------------
+        # Inject photo context into system prompt so Claude knows the path
+        # exists and can reliably pass it to create_work_order.
+        # ------------------------------------------------------------------
+        if saved_photo_url:
+            photo_context = (
+                f"\n\n[SYSTEM CONTEXT — PHOTO RECEIVED]\n"
+                f"The user sent an image that has been saved to: {saved_photo_url}\n"
+                f"When you call create_work_order, pass this exact string as photo_url. "
+                f"Do not modify or invent the path."
+            )
+            system_prompt = base_prompt + photo_context
+        else:
+            system_prompt = base_prompt
+
+        # Allow up to 7 rounds of tool calling
         for _ in range(7):
-            # 3. Trim message history safely before calling API (Strategy B)
             trimmed_history = get_trimmed_history(
                 conversation_history[from_number], max_messages=10
             )
@@ -212,7 +259,7 @@ def handle_message(
 
             print(f"Stop reason: {response.stop_reason}")
 
-            # If Claude is done — just return the text
+            # Claude finished — return the reply text
             if response.stop_reason == "end_turn":
                 for block in response.content:
                     if block.type == "text" and block.text:
@@ -223,7 +270,7 @@ def handle_message(
                         return block.text
                 return "Done."
 
-            # Claude wants to call tools — run ALL of them
+            # Claude wants to call tools
             if response.stop_reason == "tool_use":
                 tool_results = []
 
@@ -233,18 +280,24 @@ def handle_message(
 
                         if block.name == "create_work_order":
                             result = create_work_order(**block.input)
+
                         elif block.name == "delete_work_order":
                             block.input["requesting_user"] = from_number
                             result = delete_work_order(**block.input)
+
                         elif block.name == "view_all_work_orders":
                             block.input["requesting_user"] = from_number
                             result = view_all_work_orders(**block.input)
+
                         elif block.name == "search_assets":
                             result = search_assets(**block.input)
+
                         elif block.name == "find_available_technician":
                             result = find_available_technician(**block.input)
+
                         elif block.name == "get_asset_history":
                             result = get_asset_history(**block.input)
+
                         else:
                             result = {"error": "Unknown tool"}
 
@@ -257,7 +310,6 @@ def handle_message(
                             }
                         )
 
-                # Add Claude's response and ALL tool results to history
                 conversation_history[from_number].append(
                     {"role": "assistant", "content": response.content}
                 )

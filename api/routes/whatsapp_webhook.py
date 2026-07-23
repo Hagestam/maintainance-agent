@@ -1,40 +1,44 @@
-from fastapi import APIRouter, Request, Response
-from app.config import settings
+# api/routes/whatsapp_webhook.py
+import logging
+from fastapi import APIRouter, Request
 from agents.orchestrator import handle_message
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.get("")
-def verify(request: Request):
-    mode = request.query_params.get("hub.mode")
-    token = request.query_params.get("hub.verify_token")
-    challenge = request.query_params.get("hub.challenge")
-    if mode == "subscribe" and token == settings.whatsapp_verify_token:
-        return Response(content=challenge, media_type="text/plain")
-    return Response(status_code=403)
 
-@router.post("")
-async def receive(request: Request):
-    payload = await request.json()
-
-    print("Received webhook payload:")
-    print(payload)
-
+@router.post("/api/chat")
+async def chat_endpoint(request: Request):
+    """
+    Receives inbound messages from bridge.js.
+    Payload shape (all fields from bridge):
+        {
+            "user":             "26XXXXXXXXX@c.us",
+            "message":          "the boiler is leaking",
+            "image_base64":     "<base64 string or null>",
+            "image_mime_type":  "image/jpeg  (or null)"
+        }
+    """
     try:
-        entry = payload["entry"][0]["changes"][0]["value"]
-        message = entry["messages"][0]
+        body = await request.json()
 
-        from_number = message["from"]
-        msg_type = message.get("type")
+        from_number: str = body.get("user", "")
+        text: str = body.get("message", "")
+        image_base64: str | None = body.get("image_base64")
+        image_mime_type: str | None = body.get("image_mime_type")
 
-        if msg_type == "text":
-            text = message["text"]["body"]
+        if not from_number:
+            return {"reply": None, "error": "missing 'user' field"}
 
-            print(f"Message from {from_number}: {text}")
+        reply = handle_message(
+            from_number=from_number,
+            text=text,
+            image_base64=image_base64,
+            image_mime_type=image_mime_type,
+        )
 
-            handle_message(from_number, text)
+        return {"reply": reply}
 
-    except (KeyError, IndexError) as error:
-        print(f"Webhook parsing error: {error}")
-
-    return {"status": "received"}
+    except Exception as exc:
+        logger.exception("Webhook handler crashed: %s", exc)
+        return {"reply": "Internal server error. Please try again."}

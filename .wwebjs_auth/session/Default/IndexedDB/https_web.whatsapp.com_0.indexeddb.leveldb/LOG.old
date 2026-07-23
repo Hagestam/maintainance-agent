@@ -1,3 +1,5 @@
-2026/07/23-01:33:25.094 385ef Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/07/23-01:33:25.094 385ef Recovering log #17
-2026/07/23-01:33:25.109 385ef Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000017.log 
+2026/07/23-20:01:30.480 3ccff Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/23-20:01:30.480 3ccff Recovering log #25
+2026/07/23-20:01:30.484 3ccff Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000025.log 
+2026/07/23-20:01:30.484 3ccff Delete type=2 #23
+2026/07/23-20:01:30.484 3ccff Delete type=2 #26

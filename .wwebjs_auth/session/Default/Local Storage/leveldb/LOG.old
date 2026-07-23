@@ -1,3 +1,6 @@
-2026/07/23-01:33:24.419 38621 Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
-2026/07/23-01:33:24.422 38621 Recovering log #4
-2026/07/23-01:33:24.423 38621 Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Local Storage/leveldb/000004.log 
+2026/07/23-20:01:29.478 3cd36 Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2026/07/23-20:01:29.481 3cd36 Recovering log #4
+2026/07/23-20:01:29.484 3cd36 Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/Local Storage/leveldb/000004.log 
+2026/07/23-20:02:29.486 3cd36 Level-0 table #8: started
+2026/07/23-20:02:29.489 3cd36 Level-0 table #8: 15195 bytes OK
+2026/07/23-20:02:29.490 3cd36 Delete type=0 #4

@@ -63,17 +63,24 @@ client.on('message_create', async (msg) => {
     let imageMimeType = null;
 
     if (msg.hasMedia) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
         try {
+            await new Promise(res => setTimeout(res, 1000 * attempt)); // wait 1s, 2s, 3s
             const media = await msg.downloadMedia();
             if (media && media.mimetype.startsWith('image/')) {
                 imageBase64 = media.data;
                 imageMimeType = media.mimetype;
                 console.log(`Image received from ${msg.from}, type: ${media.mimetype}`);
             }
+            break; // success — exit retry loop
         } catch (err) {
-            console.error('Failed to download media:', err);
+            console.error(`Media download attempt ${attempt} failed:`, err.message);
+            if (attempt === 3) {
+                console.error('Giving up on media — forwarding text only.');
+            }
         }
     }
+}
 
     if (!messageText.trim() && !imageBase64) return;
 
