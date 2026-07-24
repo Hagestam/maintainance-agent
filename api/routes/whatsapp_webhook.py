@@ -21,7 +21,8 @@ async def chat_endpoint(request: Request):
     """
     try:
         body = await request.json()
-
+        
+        print("body", body)
         from_number: str = body.get("user", "")
         text: str = body.get("message", "")
         image_base64: str | None = body.get("image_base64")

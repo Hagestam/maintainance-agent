@@ -1,5 +1,13 @@
-2026/07/23-20:01:30.480 3ccff Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/07/23-20:01:30.480 3ccff Recovering log #25
-2026/07/23-20:01:30.484 3ccff Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000025.log 
-2026/07/23-20:01:30.484 3ccff Delete type=2 #23
-2026/07/23-20:01:30.484 3ccff Delete type=2 #26
+2026/07/24-14:23:15.551 5d59 Reusing MANIFEST /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/24-14:23:15.551 5d59 Recovering log #25
+2026/07/24-14:23:15.572 5d59 Reusing old log /home/hagestam/Desktop/HACKATHONS/maintainance-agent/.wwebjs_auth/session/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/000025.log 
+2026/07/24-14:35:10.267 5d59 Level-0 table #30: started
+2026/07/24-14:35:10.288 5d59 Level-0 table #30: 1476559 bytes OK
+2026/07/24-14:35:10.289 5d59 Delete type=0 #25
+2026/07/24-14:44:58.827 5d59 Compacting 1@1 + 1@2 files
+2026/07/24-14:44:58.867 5d59 Generated table #31@1: 52406 keys, 2234122 bytes
+2026/07/24-14:44:58.869 5d59 Generated table #32@1: 914 keys, 16576 bytes
+2026/07/24-14:44:58.869 5d59 Compacted 1@1 + 1@2 files => 2250698 bytes
+2026/07/24-14:44:58.870 5d59 compacted to: files[ 0 0 2 0 0 0 0 ]
+2026/07/24-14:44:58.871 5d59 Delete type=2 #27
+2026/07/24-14:44:58.871 5d59 Delete type=2 #30

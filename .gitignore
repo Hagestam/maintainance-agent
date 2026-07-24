@@ -39,3 +39,7 @@ htmlcov/
 # SQLite
 *.db
 node_modules
+
+#.wwebjs
+.wwebjs_auth/
+.wwebjs_cache/
