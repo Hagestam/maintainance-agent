@@ -34,6 +34,8 @@ class ChatRequest(BaseModel):
     message: str
     image_base64: Optional[str] = None
     image_mime_type: Optional[str] = None
+    audio_base64: Optional[str] = None
+    audio_mime_type: Optional[str] = None
 
 @app.post("/api/chat")
 async def chat_bridge(req: ChatRequest):
@@ -41,7 +43,9 @@ async def chat_bridge(req: ChatRequest):
         req.user,
         req.message,
         image_base64=req.image_base64,
-        image_mime_type=req.image_mime_type
+        image_mime_type=req.image_mime_type,
+        audio_base64=req.audio_base64,
+        audio_mime_type=req.audio_mime_type,
     )
     return {"reply": reply}
 

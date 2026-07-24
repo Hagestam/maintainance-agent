@@ -17,7 +17,6 @@ httpx==0.28.1
 idna==3.18
 jiter==0.16.0
 ngrok==1.7.0
-openai==2.45.0
 openpyxl==3.1.5
 psycopg2-binary==2.9.12
 pydantic==2.13.4
@@ -36,3 +35,4 @@ uvicorn==0.51.0
 uvloop==0.22.1
 watchfiles==1.2.0
 websockets==16.1
+faster-whisper==1.2.1

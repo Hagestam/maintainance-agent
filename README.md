@@ -70,6 +70,7 @@ WhatsApp (phone)
 - **PostgreSQL** running locally or remotely
 - **Anthropic API key**
 - **Chrome / Chromium** (Puppeteer for WhatsApp Web; bridge runs with `headless: false` by default)
+- **Voice notes:** `faster-whisper` (in `requirements.txt`). First run downloads a small local Whisper model. System `ffmpeg` is optional but recommended if audio decoding fails.
 
 ---
 
@@ -190,6 +191,8 @@ WHATSAPP_TOKEN=unused
 PHONE_NUMBER_ID=unused
 WHATSAPP_VERIFY_TOKEN=unused
 ```
+
+Voice notes are downloaded in `bridge.js`, transcribed **locally** with Whisper (`faster-whisper` — no OpenAI key), then handled like normal text by Claude. Install system `ffmpeg` so OGG/Opus WhatsApp audio can be decoded.
 
 ### Not env-driven (hardcoded today)
 

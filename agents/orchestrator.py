@@ -8,7 +8,8 @@ from tools.cmms_tools import (
     find_available_technician,
     get_asset_history,
 )
-from tools.image_store import save_image          # ← NEW
+from tools.image_store import save_image
+from tools.audio_transcribe import transcribe_audio
 
 client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
@@ -163,12 +164,35 @@ def handle_message(
     text: str,
     image_base64: str = None,
     image_mime_type: str = None,
+    audio_base64: str = None,
+    audio_mime_type: str = None,
 ) -> str:
     print("\n========== AGENT START ==========")
     print(f"From: {from_number} | Message: {text}")
 
     if from_number not in conversation_history:
         conversation_history[from_number] = []
+
+    # -------------------------------------------------------------------------
+    # 0. Voice notes → text (Claude does not ingest WhatsApp audio directly).
+    # -------------------------------------------------------------------------
+    if audio_base64 and audio_mime_type:
+        print(f"[orchestrator] Audio received ({audio_mime_type}) — transcribing…")
+        transcript = transcribe_audio(audio_base64, audio_mime_type)
+        if transcript:
+            print(f"[orchestrator] Transcript: {transcript}")
+            # Prefer the spoken content; keep any caption the user typed.
+            placeholder = "I sent a voice note about the issue."
+            caption = (text or "").strip()
+            if not caption or caption == placeholder:
+                text = transcript
+            else:
+                text = f"{caption}\n\n[Voice note transcript]: {transcript}"
+        else:
+            return (
+                "I received your voice note but couldn't transcribe it. "
+                "Please type the issue instead, or ensure faster-whisper and ffmpeg are installed."
+            )
 
     # -------------------------------------------------------------------------
     # 1. Persist the image to disk BEFORE the agentic loop.

@@ -16,17 +16,20 @@ async def chat_endpoint(request: Request):
             "user":             "26XXXXXXXXX@c.us",
             "message":          "the boiler is leaking",
             "image_base64":     "<base64 string or null>",
-            "image_mime_type":  "image/jpeg  (or null)"
+            "image_mime_type":  "image/jpeg (or null)",
+            "audio_base64":     "<base64 string or null>",
+            "audio_mime_type":  "audio/ogg (or null)"
         }
     """
     try:
         body = await request.json()
-        
-        print("body", body)
+
         from_number: str = body.get("user", "")
         text: str = body.get("message", "")
         image_base64: str | None = body.get("image_base64")
         image_mime_type: str | None = body.get("image_mime_type")
+        audio_base64: str | None = body.get("audio_base64")
+        audio_mime_type: str | None = body.get("audio_mime_type")
 
         if not from_number:
             return {"reply": None, "error": "missing 'user' field"}
@@ -36,6 +39,8 @@ async def chat_endpoint(request: Request):
             text=text,
             image_base64=image_base64,
             image_mime_type=image_mime_type,
+            audio_base64=audio_base64,
+            audio_mime_type=audio_mime_type,
         )
 
         return {"reply": reply}

@@ -4,7 +4,7 @@ const axios = require('axios');
 const express = require('express');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -53,6 +53,32 @@ app.post('/send-message', async (req, res) => {
     }
 });
 
+function isImageMime(mimetype) {
+    return typeof mimetype === 'string' && mimetype.toLowerCase().startsWith('image/');
+}
+
+function isAudioMime(mimetype) {
+    if (typeof mimetype !== 'string') return false;
+    const base = mimetype.toLowerCase().split(';')[0].trim();
+    return base.startsWith('audio/') || base === 'application/ogg';
+}
+
+async function downloadMediaWithRetry(msg) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            await new Promise((res) => setTimeout(res, 1000 * attempt));
+            const media = await msg.downloadMedia();
+            if (media && media.data && media.mimetype) {
+                return media;
+            }
+            console.error(`Media download attempt ${attempt} returned empty payload`);
+        } catch (err) {
+            console.error(`Media download attempt ${attempt} failed:`, err.message);
+        }
+    }
+    return null;
+}
+
 // 2. LISTENER FOR WHATSAPP INCOMING MESSAGES
 client.on('message_create', async (msg) => {
     if (msg.from === 'status@broadcast') return;
@@ -61,38 +87,60 @@ client.on('message_create', async (msg) => {
     let messageText = msg.body || '';
     let imageBase64 = null;
     let imageMimeType = null;
+    let audioBase64 = null;
+    let audioMimeType = null;
 
-    if (msg.hasMedia) {
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-            await new Promise(res => setTimeout(res, 1000 * attempt)); // wait 1s, 2s, 3s
-            const media = await msg.downloadMedia();
-            if (media && media.mimetype.startsWith('image/')) {
+    // Voice notes / media: hasMedia, or WhatsApp types "ptt" / "audio"
+    if (msg.hasMedia || msg.type === 'ptt' || msg.type === 'audio') {
+        const media = await downloadMediaWithRetry(msg);
+        if (media) {
+            const mime = media.mimetype;
+            if (isImageMime(mime)) {
                 imageBase64 = media.data;
-                imageMimeType = media.mimetype;
-                console.log(`Image received from ${msg.from}, type: ${media.mimetype}`);
+                imageMimeType = mime.split(';')[0].trim();
+                console.log(`Image received from ${msg.from}, type: ${imageMimeType}`);
+            } else if (isAudioMime(mime) || msg.type === 'ptt' || msg.type === 'audio') {
+                audioBase64 = media.data;
+                audioMimeType = (mime || 'audio/ogg').split(';')[0].trim();
+                console.log(
+                    `Audio received from ${msg.from}, type: ${audioMimeType}, msg.type=${msg.type}`
+                );
+            } else {
+                console.log(
+                    `Unsupported media from ${msg.from}: ${mime} (msg.type=${msg.type}) — ignored`
+                );
             }
-            break; // success — exit retry loop
-        } catch (err) {
-            console.error(`Media download attempt ${attempt} failed:`, err.message);
-            if (attempt === 3) {
-                console.error('Giving up on media — forwarding text only.');
-            }
+        } else {
+            console.error('Giving up on media — forwarding text only (if any).');
         }
     }
-}
 
-    if (!messageText.trim() && !imageBase64) return;
+    // Voice-only notes have empty body — must still forward when audio is present
+    if (!messageText.trim() && !imageBase64 && !audioBase64) return;
 
-    console.log(`\nMessage from ${msg.from}: "${messageText}"`);
+    console.log(
+        `\nMessage from ${msg.from}: "${messageText}"` +
+            (imageBase64 ? ' [image]' : '') +
+            (audioBase64 ? ' [audio]' : '')
+    );
 
     try {
-        const response = await axios.post('http://localhost:8000/api/chat', {
-            user: msg.from,
-            message: messageText || 'I sent a photo of the issue.',
-            image_base64: imageBase64,
-            image_mime_type: imageMimeType
-        });
+        const response = await axios.post(
+            'http://localhost:8000/api/chat',
+            {
+                user: msg.from,
+                message:
+                    messageText ||
+                    (audioBase64
+                        ? 'I sent a voice note about the issue.'
+                        : 'I sent a photo of the issue.'),
+                image_base64: imageBase64,
+                image_mime_type: imageMimeType,
+                audio_base64: audioBase64,
+                audio_mime_type: audioMimeType,
+            },
+            { maxBodyLength: Infinity, maxContentLength: Infinity }
+        );
 
         const replyText = response.data.reply;
         if (replyText) {
